@@ -66,7 +66,7 @@ namespace Zoey.Quartz.Infrastructure.Repositorys
         /// <returns></returns>
         public async Task<TaskOptions> GetTaskById(int id)
         {
-            string sql = @"SELECT * FROM TaskOptions WHERE TaskName = @id";
+            string sql = @"SELECT * FROM TaskOptions WHERE Id = @id";
             using var con = new DapperDbContexts().Connection;
             TaskOptions task = await con.QueryFirstOrDefaultAsync<TaskOptions>(sql, new
             {
@@ -94,7 +94,7 @@ namespace Zoey.Quartz.Infrastructure.Repositorys
         /// <returns></returns>
         public async Task Delete(int id)
         {
-            string sql = @"DELETE TaskOptions WHERE Id = @id";
+            string sql = @"DELETE FROM TaskOptions WHERE Id = @id";
             using var con = new DapperDbContexts().Connection;
             await con.ExecuteAsync(sql, new { id = id });
         }

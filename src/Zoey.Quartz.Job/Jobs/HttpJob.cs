@@ -92,7 +92,7 @@ namespace Zoey.Quartz
             }
             TaskLog taskLog = new TaskLog()
             {
-                ExecutionDuration = DateTime.Now.Subtract(DateTime.Now).Milliseconds,
+                ExecutionDuration = DateTime.Now.Subtract(dateTime).Milliseconds,
                 ExecutionTime = dateTime,
                 Msg = await httpMessage.Content.ReadAsStringAsync(),
                 TaskId = taskOptions.Id,

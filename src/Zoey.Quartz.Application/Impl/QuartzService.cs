@@ -2,7 +2,6 @@
 using Zoey.Quartz.Core.Web;
 using Zoey.Quartz.Domain.Enum;
 using Zoey.Quartz.Domain.Model;
-using Zoey.Quartz.Domain.Models;
 using Zoey.Quartz.Infrastructure.Repositorys;
 using Newtonsoft.Json;
 using Quartz;
@@ -48,7 +47,7 @@ namespace Zoey.Quartz.Application
                 foreach (TaskOptions item in allTask)
                 {
                     options = item;
-                    AjaxResponse result = AddJob(item, true).Result;
+                    await AddSchedulerJob(item);
                 }
             }
             catch (Exception ex)
@@ -87,61 +86,54 @@ namespace Zoey.Quartz.Application
         /// 添加作业
         /// </summary>
         /// <param name="taskOptions"></param>
-        /// <param name="schedulerFactory"></param>
-        /// <param name="init">是否初始化,否=需要重新生成配置文件，是=不重新生成配置文件</param>
         /// <returns></returns>
-        public async Task<AjaxResponse> AddJob(TaskOptions taskOptions, bool init = false)
+        public async Task<AjaxResponse> AddJob(TaskOptions taskOptions)
         {
             try
             {
-                (bool, string) validExpression = IsValidExpression(taskOptions.Interval);
-                if (!validExpression.Item1)
+                (bool success, string errorMsg) validExpression = IsValidExpression(taskOptions.Interval);
+                if (!validExpression.success)
                 {
-                    return new AjaxResponse(false, validExpression.Item2);
+                    return new AjaxResponse(false, validExpression.errorMsg);
                 }
-
-                (bool success, AjaxResponse result) result = await Exists(taskOptions, init);
-                if (!result.success)
-                {
-                    return result.result;
-                }
-
-                if (!init)
-                {
-                    await _task.Add(taskOptions);
-                }
-
-                IJobDetail job = _jobManager.GetJob(null)
-                                   .WithIdentity(taskOptions.TaskName, taskOptions.GroupName)
-                                   .Build();
-                ITrigger trigger = _triggerManager.Create(null)
-                                   .StartNow()
-                                   .WithIdentity(taskOptions.TaskName, taskOptions.GroupName)
-                                   .WithDescription(taskOptions.Describe)
-                                   .WithCronSchedule(taskOptions.Interval)
-                                   .Build();
-                IScheduler scheduler = await _schedulerFactory.GetScheduler();
-                scheduler.JobFactory = _jobFactory;
-                await scheduler.ScheduleJob(job, trigger);
-                if (taskOptions.Status == (int)TriggerState.Normal)
-                {
-                    await scheduler.Start();
-                }
-                else
-                {
-                    await Pause(taskOptions);
-                    _ = _log.WriteLog($"作业:{taskOptions.TaskName},分组:{taskOptions.GroupName},新建时未启动原因,状态为:{taskOptions.Status}");
-                }
-                if (!init)
-                {
-                    _ = _log.WriteLog($"新增任务{taskOptions.TaskName}--{taskOptions.GroupName}");
-                }
+                var existTask = await _task.Exists(taskOptions.TaskName, taskOptions.GroupName);
+                if (existTask)
+                    return new AjaxResponse(false, $"作业:{taskOptions.TaskName},分组：{taskOptions.GroupName}已经存在");
+                await _task.Add(taskOptions);
+                //TODO:如果失败删除数据库数据
+                await AddSchedulerJob(taskOptions);
+                _ = _log.WriteLog($"新增任务{taskOptions.TaskName}--{taskOptions.GroupName}");
             }
             catch (Exception ex)
             {
                 return new AjaxResponse(false, ex.Message);
             }
             return new AjaxResponse();
+        }
+
+        private async Task AddSchedulerJob(TaskOptions taskOptions)
+        {
+            IJobDetail job = _jobManager.GetJob(null)
+                                  .WithIdentity(taskOptions.TaskName, taskOptions.GroupName)
+                                  .Build();
+            ITrigger trigger = _triggerManager.Create(null)
+                               .StartNow()
+                               .WithIdentity(taskOptions.TaskName, taskOptions.GroupName)
+                               .WithDescription(taskOptions.Describe)
+                               .WithCronSchedule(taskOptions.Interval)
+                               .Build();
+            IScheduler scheduler = await _schedulerFactory.GetScheduler();
+            scheduler.JobFactory = _jobFactory;
+            await scheduler.ScheduleJob(job, trigger);
+            if (taskOptions.Status == (int)TriggerState.Normal)
+            {
+                await scheduler.Start();
+            }
+            else
+            {
+                await Pause(taskOptions);
+                _ = _log.WriteLog($"作业:{taskOptions.TaskName},分组:{taskOptions.GroupName},新建时未启动原因,状态为:{taskOptions.Status}");
+            }
         }
 
         /// <summary>
@@ -278,8 +270,7 @@ namespace Zoey.Quartz.Application
 
         private async Task<AjaxResponse> ModifyTaskEntity(TaskOptions taskOptions, JobAction action)
         {
-            TaskOptions options = null;
-            AjaxResponse result = null;
+            var result = new AjaxResponse();
             switch (action)
             {
                 case JobAction.删除:
@@ -288,13 +279,13 @@ namespace Zoey.Quartz.Application
                 case JobAction.修改:
                     await _task.Edit(taskOptions);
                     //生成任务并添加新配置
-                    result = AddJob(taskOptions, false).GetAwaiter().GetResult();
+                    await AddSchedulerJob(taskOptions);
                     break;
                 case JobAction.暂停:
                 case JobAction.开启:
                 case JobAction.停止:
                 case JobAction.立即执行:
-                    options = await _task.GetTaskById(taskOptions.Id);
+                    TaskOptions options = await _task.GetTaskById(taskOptions.Id);
                     if (action == JobAction.暂停)
                     {
                         options.Status = (int)TriggerState.Paused;
@@ -316,20 +307,6 @@ namespace Zoey.Quartz.Application
             return result;
         }
 
-        /// <summary>
-        /// 作业是否存在
-        /// </summary>
-        /// <param name="taskOptions"></param>
-        /// <param name="init">初始化的不需要判断</param>
-        /// <returns></returns>
-        private async Task<(bool success, AjaxResponse result)> Exists(TaskOptions taskOptions, bool init)
-        {
-            if (!init && await _task.Exists(taskOptions.TaskName, taskOptions.GroupName))
-            {
-                return (false, new AjaxResponse(false, $"作业:{taskOptions.TaskName},分组：{taskOptions.GroupName}已经存在"));
-            }
-            return (true, null);
-        }
 
         private (bool success, string errorMsg) IsValidExpression(string cronExpression)
         {

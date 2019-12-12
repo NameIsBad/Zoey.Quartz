@@ -240,8 +240,11 @@ var $taskVue = new Vue({
                 this.select.rows[0], function (data) {
                     if (data.success) {
                         $taskVue.refresh(true);
+                        return $taskVue.$Message.success(data.message);
+                    } else {
+                        $taskVue.$Message.error(data.message || '操作失败');
                     }
-                    return $taskVue.$Message.success(data.message);
+
                 });
         },
         update: function () {
@@ -283,7 +286,7 @@ var $taskVue = new Vue({
                         $taskVue.refresh(true);
                         $taskVue.$Message.success(data.message || '保存成功');
                     } else {
-                        $taskVue.$Message.error(data.message || '保存成功');
+                        $taskVue.$Message.error(data.message || '保存失败');
                     }
                 });
             });

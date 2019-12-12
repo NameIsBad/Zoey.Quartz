@@ -10,7 +10,7 @@ namespace Zoey.Quartz.Application
     {
         public Task StartQuartz();
         public Task<IEnumerable<TaskOptions>> GetJobs();
-        Task<AjaxResponse> AddJob(TaskOptions taskOptions, bool init = false);
+        Task<AjaxResponse> AddJob(TaskOptions taskOptions);
         Task<AjaxResponse> Remove(TaskOptions taskOptions);
         Task<AjaxResponse> Update(TaskOptions taskOptions);
         Task<AjaxResponse> Pause(TaskOptions taskOptions);
