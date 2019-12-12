@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json.Serialization;
 using System;
+using ZoeyQuartz.Quartz.Core;
 
 namespace Zoey.Quartz.Web
 {
@@ -64,7 +65,7 @@ namespace Zoey.Quartz.Web
         }
         public void ConfigureContainer(ContainerBuilder builder)
         {
-            builder.RegisterModule(new DefaultModule());
+            builder.RegisterModule(new ZoeyQuartzQuartzModule());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

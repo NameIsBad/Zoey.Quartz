@@ -51,7 +51,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             #region 初始化Job的ConfigureServices
             Assembly asm = typeof(JobManager).GetTypeInfo().Assembly;
-            IEnumerable<Type> types = asm.GetTypes().Where(t => typeof(ZoeyJob).IsAssignableFrom(t));
+            IEnumerable<Type> types = asm.GetTypes().Where(t => typeof(ZoeyQuartzJob).IsAssignableFrom(t));
             if (types.Count() == 0)
             {
                 return;
@@ -59,7 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             foreach (Type t in types)
             {
-                var s =  (ZoeyJob)Activator.CreateInstance(t);
+                var s =  (ZoeyQuartzJob)Activator.CreateInstance(t);
                 s.ConfigureServices(services);
             }
             #endregion

@@ -1,23 +1,22 @@
 ﻿using Autofac;
-using Zoey.Quartz.Core.Dependency;
-using Zoey.Quartz.Core.Quartz;
-using Zoey.Quartz.Job;
 using System;
 using System.Linq;
 using System.Reflection;
+using Zoey.Quartz.Core.Dependency;
+using Zoey.Quartz.Core.Quartz;
 
-namespace Zoey.Quartz.Web.Core
+namespace ZoeyQuartz.Quartz.Core
 {
-    public class DefaultModule : Autofac.Module
+    public class ZoeyQuartzQuartzModule : Autofac.Module
     {
         protected override void Load(ContainerBuilder builder)
         {
             //获取所有需要依赖注入的程序集
             Assembly[] assemblies = new Assembly[]
             {
-                Assembly.Load("Zoey.Quartz.Infrastructure"),
-                Assembly.Load("Zoey.Quartz.Application"),
-                Assembly.Load("Zoey.Quartz.Job")
+                Assembly.Load("ZoeyQuartz.Quartz.Infrastructure"),
+                Assembly.Load("ZoeyQuartz.Quartz.Application"),
+                Assembly.Load("ZoeyQuartz.Quartz.Job")
             };
 
             Type scopTypes = typeof(IScopeDependency);
@@ -38,7 +37,7 @@ namespace Zoey.Quartz.Web.Core
                 .AsImplementedInterfaces()
                 .InstancePerDependency();
 
-            Type jobTypes = typeof(ZoeyJob);
+            Type jobTypes = typeof(ZoeyQuartzJob);
             builder.RegisterAssemblyTypes(assemblies)
                .Where(type => jobTypes.IsAssignableFrom(type) && !type.IsAbstract)
                .AsSelf()

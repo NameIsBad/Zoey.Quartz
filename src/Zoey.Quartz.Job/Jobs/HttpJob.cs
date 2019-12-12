@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace Zoey.Quartz
 {
-    public class HttpJob : ZoeyJob
+    public class HttpJob : ZoeyQuartzJob
     {
         private readonly ITaskService _taskService;
         private readonly ITaskLogService _taskLogService;

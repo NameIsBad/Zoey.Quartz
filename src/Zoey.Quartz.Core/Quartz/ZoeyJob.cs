@@ -19,7 +19,7 @@ namespace Zoey.Quartz.Core.Quartz
         public IJob NewJob(TriggerFiredBundle bundle, IScheduler scheduler)
         {
             IJobDetail jobDetail = bundle.JobDetail;
-            var job = (ZoeyJob)_serviceProvider.GetService(jobDetail.JobType);
+            var job = (ZoeyQuartzJob)_serviceProvider.GetService(jobDetail.JobType);
             return job;
         }
 
@@ -30,9 +30,9 @@ namespace Zoey.Quartz.Core.Quartz
         }
     }
 
-    public abstract class ZoeyJob : IJob
+    public abstract class ZoeyQuartzJob : IJob
     {
-        public ZoeyJob()
+        public ZoeyQuartzJob()
         {
         }
         public virtual void ConfigureServices(IServiceCollection services)
