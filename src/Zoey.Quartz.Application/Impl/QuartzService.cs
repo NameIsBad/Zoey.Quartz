@@ -3,6 +3,7 @@ using Zoey.Quartz.Core.Web;
 using Zoey.Quartz.Domain.Enum;
 using Zoey.Quartz.Domain.Model;
 using Zoey.Quartz.Infrastructure.Repositorys;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Quartz;
 using Quartz.Impl.Matchers;
@@ -24,9 +25,12 @@ namespace Zoey.Quartz.Application
         private readonly ILogRepository _log;
         private readonly IJobManager _jobManager;
         private readonly ITriggerManager _triggerManager;
+        private readonly ILogger<QuartzService> _logger;
         public QuartzService(ISchedulerFactory schedulerFactory, ITaskRepository task, IJobFactory jobFactory,
-            ITaskLogRepository taskLogService, ILogRepository log,IJobManager jobManager, ITriggerManager triggerManager)
+            ITaskLogRepository taskLogService, ILogRepository log, IJobManager jobManager, ITriggerManager triggerManager,
+            ILogger<QuartzService> logger)
         {
+            _logger = logger;
             _triggerManager = triggerManager;
             _jobManager = jobManager;
             _log = log;
@@ -41,7 +45,7 @@ namespace Zoey.Quartz.Application
             int errorCount = 0;
             string errorMsg = "";
             TaskOptions options = null;
-            var allTask = await _task.GetAll();
+            IEnumerable<TaskOptions> allTask = await _task.GetAll();
             try
             {
                 foreach (TaskOptions item in allTask)
@@ -54,6 +58,7 @@ namespace Zoey.Quartz.Application
             {
                 errorCount = +1;
                 errorMsg += $"作业:{options?.TaskName},异常：{ex.Message}";
+                _logger.LogError("启动作业错误", ex);
             }
             string content = $"成功:{ allTask.Count() - errorCount}个,失败{errorCount}个,异常：{errorMsg}";
             _ = _log.WriteLog(content);
@@ -61,8 +66,8 @@ namespace Zoey.Quartz.Application
 
         public async Task<IEnumerable<TaskOptions>> GetJobs()
         {
-            var list = new List<TaskOptions>();
-            var allTask = await _task.GetAll();
+            List<TaskOptions> list = new List<TaskOptions>();
+            IEnumerable<TaskOptions> allTask = await _task.GetAll();
 
             IScheduler _scheduler = await _schedulerFactory.GetScheduler();
 
@@ -71,7 +76,7 @@ namespace Zoey.Quartz.Application
             {
                 foreach (JobKey jobKey in await _scheduler.GetJobKeys(GroupMatcher<JobKey>.GroupEquals(groupName)))
                 {
-                    TaskOptions taskOptions = allTask.FirstOrDefault(t=>t.GroupName == jobKey.Group && t.TaskName == jobKey.Name);
+                    TaskOptions taskOptions = allTask.FirstOrDefault(t => t.GroupName == jobKey.Group && t.TaskName == jobKey.Name);
                     if (taskOptions == null)
                     {
                         continue;
@@ -96,9 +101,12 @@ namespace Zoey.Quartz.Application
                 {
                     return new AjaxResponse(false, validExpression.errorMsg);
                 }
-                var existTask = await _task.Exists(taskOptions.TaskName, taskOptions.GroupName);
+                bool existTask = await _task.Exists(taskOptions.TaskName, taskOptions.GroupName);
                 if (existTask)
+                {
                     return new AjaxResponse(false, $"作业:{taskOptions.TaskName},分组：{taskOptions.GroupName}已经存在");
+                }
+
                 await _task.Add(taskOptions);
                 //TODO:如果失败删除数据库数据
                 await AddSchedulerJob(taskOptions);
@@ -106,6 +114,7 @@ namespace Zoey.Quartz.Application
             }
             catch (Exception ex)
             {
+                _logger.LogError("添加作业错误", ex);
                 return new AjaxResponse(false, ex.Message);
             }
             return new AjaxResponse();
@@ -263,6 +272,7 @@ namespace Zoey.Quartz.Application
             }
             catch (Exception ex)
             {
+                _logger.LogError($"{groupName}--{taskName},的{action}错误", ex);
                 errorMsg = ex.Message;
                 return new AjaxResponse(false, ex.Message);
             }
@@ -270,7 +280,7 @@ namespace Zoey.Quartz.Application
 
         private async Task<AjaxResponse> ModifyTaskEntity(TaskOptions taskOptions, JobAction action)
         {
-            var result = new AjaxResponse();
+            AjaxResponse result = new AjaxResponse();
             switch (action)
             {
                 case JobAction.删除:
