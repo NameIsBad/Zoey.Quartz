@@ -1,4 +1,4 @@
-#region License
+﻿#region License
 
 /*
  * All content copyright Marko Lahma, unless otherwise indicated. All rights reserved.
@@ -50,7 +50,7 @@ namespace Quartz
             properties[name] = value;
         }
 
-        internal NameValueCollection Properties => properties;
+        public NameValueCollection Properties => properties;
     }
 
     /// <summary>
@@ -151,7 +151,7 @@ namespace Quartz
 
         public SchedulerBuilder WithMisfireThreshold(TimeSpan threshold)
         {
-            SetProperty("quartz.jobStore.misfireThreshold", ((int) threshold.TotalMilliseconds).ToString());
+            SetProperty("quartz.jobStore.misfireThreshold", ((int)threshold.TotalMilliseconds).ToString());
             return this;
         }
 
@@ -262,7 +262,7 @@ namespace Quartz
             /// </summary>
             public ClusterOptions WithCheckinInterval(TimeSpan interval)
             {
-                SetProperty("quartz.jobStore.clusterCheckinInterval", ((int) interval.TotalMilliseconds).ToString());
+                SetProperty("quartz.jobStore.clusterCheckinInterval", ((int)interval.TotalMilliseconds).ToString());
                 return this;
             }
 
@@ -274,7 +274,7 @@ namespace Quartz
             /// </summary>
             public ClusterOptions WithCheckinMisfireThreshold(TimeSpan interval)
             {
-                SetProperty("quartz.jobStore.clusterCheckinMisfireThreshold", ((int) interval.TotalMilliseconds).ToString());
+                SetProperty("quartz.jobStore.clusterCheckinMisfireThreshold", ((int)interval.TotalMilliseconds).ToString());
                 return this;
             }
         }

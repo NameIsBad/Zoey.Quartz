@@ -1,39 +1,18 @@
 ﻿using Zoey.Quartz;
-using Zoey.Quartz.Core.Dependency;
 using Zoey.Quartz.Job;
-using Microsoft.Extensions.Configuration;
 using Quartz;
 using Quartz.Spi;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using Zoey.Quartz.Core.Quartz;
-using Zoey.Quartz.Infrastructure;
-using Microsoft.EntityFrameworkCore;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
     public static class ZoeyQuartzServiceCollectionExtensions
     {
-        public static IServiceCollection AddQuartz(this IServiceCollection services, Action<ZoeyQuartzOptions> configureOptions)
-        {
-            if (configureOptions != null)
-            {
-                services.Configure(configureOptions);
-            }
-            services.AddQuartzCore();
-            return services;
-        }
-
         public static IServiceCollection AddQuartz(this IServiceCollection services)
         {
-            IConfigurationRoot config = new ConfigurationBuilder()
-                         .SetBasePath(Directory.GetCurrentDirectory())
-                         .AddJsonFile("zoey.quartz.json", optional: true, reloadOnChange: true)
-                         .Build();
-            services.Configure<ZoeyQuartzOptions>(config);
             services.AddQuartzCore();
             return services;
         }
@@ -44,75 +23,74 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 throw new ArgumentNullException(nameof(services));
             }
-            //RegistByInterface(services);
-            services.AddSingleton<ISchedulerFactory, ZoeyStdSchedulerFactory>(t =>
+
+            services.AddSingleton<IScheduler>(t =>
             {
-                return new ZoeyStdSchedulerFactory();
+                System.Runtime.CompilerServices.ConfiguredTaskAwaitable<IScheduler> scheduler = ZoeySchedulerFactory.GetScheduler().ConfigureAwait(false);
+                return scheduler.GetAwaiter().GetResult();
             });
-            services.AddSingleton<IJobFactory, QuartzFactory>();
-            services.AddSingleton<IJobManager, JobManager>();
-            services.AddSingleton<ITriggerManager, TriggerManager>();
+            services.AddSingleton<IJobFactory, JobFactory>();
 
             #region 初始化Job的ConfigureServices
-            Assembly asm = typeof(JobManager).GetTypeInfo().Assembly;
-            IEnumerable<Type> types = asm.GetTypes().Where(t => typeof(ZoeyQuartzJob).IsAssignableFrom(t));
-            if (types.Count() == 0)
+            List<Type> types = Assembly.Load("Zoey.Quartz.Job").GetTypes()
+                .Where(t => !t.IsAbstract && HasImplementedRawGeneric(t, typeof(IZoeyJob<>))).ToList();
+            if (types.Count == 0)
+            {
                 return;
+            }
+
             foreach (Type t in types)
             {
-                var s =  (ZoeyQuartzJob)Activator.CreateInstance(t);
+                IZoeyJob<ZoeyJobDataMap> s = (IZoeyJob<ZoeyJobDataMap>)Activator.CreateInstance(t);
                 s.ConfigureServices(services);
             }
             #endregion
-
-
-            services.AddDbContext<QuartzDbContexts>(option =>
-            {
-                option.UseSqlite("zoeyquartz.sqlite", op =>
-                {
-
-                });
-            });
         }
 
-        private static void RegistByInterface(IServiceCollection services)
+        /// <summary>
+        /// 判断指定的类型 <paramref name="type"/> 是否是指定泛型类型的子类型，或实现了指定泛型接口。
+        /// </summary>
+        /// <param name="type">需要测试的类型。</param>
+        /// <param name="generic">泛型接口类型，传入 typeof(IXxx&lt;&gt;)</param>
+        /// <returns>如果是泛型接口的子类型，则返回 true，否则返回 false。</returns>
+        public static bool HasImplementedRawGeneric(Type type, Type generic)
         {
-            //获取所有需要依赖注入的程序集
-            var types = new Assembly[]
-             {
-                Assembly.Load("Zoey.Quartz.Infrastructure"),
-                Assembly.Load("Zoey.Quartz.Application"),
-                Assembly.Load("Zoey.Quartz.Job")
-             }.SelectMany(t => t.GetTypes());
-
-            AutoDi(services, types, typeof(ITransientDependency), 0);
-            AutoDi(services, types, typeof(ISingleDependency), 1);
-            AutoDi(services, types, typeof(IScopeDependency), 2);
-        }
-
-        static void AutoDi(IServiceCollection services, IEnumerable<Type> allTypes, Type baseType, int type)
-        {
-            var scopeTypes = allTypes.Where(t => baseType.IsAssignableFrom(t));
-            var implementScopeTypes = scopeTypes.Where(x => x.IsClass);
-            var interfaceScopeTypes = scopeTypes.Where(x => x.IsInterface);
-            foreach (Type implementType in implementScopeTypes)
+            if (type == null)
             {
-                Type interfaceType = interfaceScopeTypes.FirstOrDefault(x => x.IsAssignableFrom(implementType));
-                if (interfaceType != null)
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            if (generic == null)
+            {
+                throw new ArgumentNullException(nameof(generic));
+            }
+
+            // 测试接口。
+            bool isTheRawGenericType = type.GetInterfaces().Any(IsTheRawGenericType);
+            if (isTheRawGenericType)
+            {
+                return true;
+            }
+
+            // 测试类型。
+            while (type != null && type != typeof(object))
+            {
+                isTheRawGenericType = IsTheRawGenericType(type);
+                if (isTheRawGenericType)
                 {
-                    switch (type)
-                    {
-                        case 0:
-                            services.AddTransient(interfaceType, implementType);
-                            break;
-                        case 1:
-                            services.AddSingleton(interfaceType, implementType);
-                            break;
-                        case 2:
-                            services.AddScoped(interfaceType, implementType);
-                            break;
-                    }
+                    return true;
                 }
+
+                type = type.BaseType;
+            }
+
+            // 没有找到任何匹配的接口或类型。
+            return false;
+
+            // 测试某个类型是否是指定的原始接口。
+            bool IsTheRawGenericType(Type test)
+            {
+                return generic == (test.IsGenericType ? test.GetGenericTypeDefinition() : test);
             }
         }
     }

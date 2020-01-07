@@ -1,0 +1,1 @@
+{"version":3,"file":"date-format.js","sourceRoot":"","sources":["../App/resources/date-format.ts"],"names":[],"mappings":";;AAAA;IAAA;IAOA,CAAC;IANG,yCAAM,GAAN,UAAO,KAAK,EAAE,MAAM;QAChB,IAAI,CAAC,KAAK,EAAE;YACR,OAAO,EAAE,CAAC;SACb;QACD,OAAO,MAAM,CAAC,KAAK,CAAC,CAAC,MAAM,CAAC,MAAM,CAAC,CAAC;IACxC,CAAC;IACL,+BAAC;AAAD,CAAC,AAPD,IAOC;AAPY,4DAAwB"}
